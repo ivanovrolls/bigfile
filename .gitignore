@@ -1,0 +1,33 @@
+#bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+#virt envs
+.venv/
+venv/
+env/
+
+#test
+.pytest_cache/
+.coverage
+htmlcov/
+
+#build
+build/
+dist/
+*.egg-info/
+
+#editores
+.idea/
+.vscode/
+
+#macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+#env vars
+.env
+.env.*
+!.env.example

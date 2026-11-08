@@ -35,3 +35,6 @@ dist/
 # PHP CS Fixer configuration
 /.php-cs-fixer.cache
 /.php-cs-fixer.php
+
+# SPUR generated project indexes
+.spur/

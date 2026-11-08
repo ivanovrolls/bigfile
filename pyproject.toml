@@ -1,0 +1,25 @@
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spur"
+version = "0.1.0"
+description = "A codebase navigation and dependency tracing tool"
+requires-python = ">=3.10"
+dependencies = [
+    "tree-sitter",
+    "tree-sitter-php",
+    "typer",
+    "rich",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
+
+[tool.setuptools.packages.find]
+include = ["spur*"]
+

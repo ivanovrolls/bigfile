@@ -25,25 +25,40 @@ def parse_php_file(file_path: str) -> dict:  # parse a php file, return struct i
 def extract_symbols(tree) -> list[dict]:
     # extract classes, methods and functs fromsyntax tree
     symbols = []
+    containers = {  # interface and trait support
+        "class_declaration": "class",
+        "interface_declaration": "interface",
+        "trait_declaration": "trait",
+    }
 
-    def walk(node, current_class=None):
+    def walk(
+        node, current_container=None, current_namespace=None
+    ):  # default needed for non-parent nodes
+        if node.type == "namespace_definition":
+            name_node = node.child_by_field_name("name")
+            if name_node is not None:
+                current_namespace = name_node.text.decode("utf-8")
 
-        if node.type == "class_declaration":
+            body_node = node.child_by_field_name("body")
+            if body_node is not None:
+                walk(body_node, current_container, current_namespace)
+                return current_namespace
+
+        if node.type in containers:
             name_node = node.child_by_field_name("name")
 
             if name_node is not None:
-                class_name = name_node.text.decode("utf-8")
-
+                container_name = name_node.text.decode("utf-8")
                 symbols.append(
                     {
-                        "type": "class",
-                        "name": class_name,
+                        "type": containers[node.type],
+                        "name": container_name,
                         "line": node.start_point.row + 1,
-                        "class": None,
+                        "container": None,
+                        "namespace": current_namespace,
                     }
                 )
-
-                current_class = class_name
+                current_container = container_name
 
         elif node.type == "method_declaration":
             name_node = node.child_by_field_name("name")
@@ -54,7 +69,8 @@ def extract_symbols(tree) -> list[dict]:
                         "type": "method",
                         "name": name_node.text.decode("utf-8"),
                         "line": node.start_point.row + 1,
-                        "class": current_class,
+                        "container": current_container,
+                        "namespace": current_namespace,
                     }
                 )
 
@@ -67,12 +83,14 @@ def extract_symbols(tree) -> list[dict]:
                         "type": "function",
                         "name": name_node.text.decode("utf-8"),
                         "line": node.start_point.row + 1,
-                        "class": None,
+                        "container": None,
+                        "namespace": current_namespace,
                     }
                 )
-
         for child in node.children:
-            walk(child, current_class)
+            current_namespace = walk(child, current_container, current_namespace)
+
+        return current_namespace
 
     walk(tree.root_node)
 

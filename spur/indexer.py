@@ -8,7 +8,9 @@ def index_project(project_path: str) -> list[dict]:
         raise NotADirectoryError(f"Directory not found: {project_path}")
 
     index = []
-    for php_file in root.rglob("*.php"):
+    for php_file in root.rglob(
+        "*.php"
+    ):  # rglob recursively searches the directory tree through all files
         try:
             result = parse_php_file(str(php_file))
             symbols = extract_symbols(result["tree"])

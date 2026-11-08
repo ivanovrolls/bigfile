@@ -190,3 +190,26 @@ def extract_dependencies(tree) -> list[dict]:
     walk(tree.root_node)
 
     return dependencies
+
+
+def extract_references(tree) -> list[dict]:
+    references = []
+
+    def walk(node):
+        if node.type == "function_call_expression":
+            function_node = node.child_by_field_name("function")
+
+            if function_node is not None:
+                references.append(
+                    {
+                        "type": "function_call",
+                        "name": function_node.text.decode("utf-8"),
+                        "line": node.start_point.row + 1,
+                    }
+                )
+
+        for child in node.children:
+            walk(child)
+
+    walk(tree.root_node)
+    return references

@@ -7,17 +7,20 @@ PHP_LANGUAGE = Language(tsp.language_php())
 PHP_PARSER = Parser(PHP_LANGUAGE)
 
 
-def parse_php_file(file_path: str) -> dict:  # parse a php file, return struct info
+def parse_php_file(file_path: str) -> dict:  # parse a php file, return repo struct info
     path = Path(file_path)
     if not path.is_file():
         raise FileNotFoundError(f"File not found: {file_path}")
 
     source_code = path.read_bytes()
-    tree = PHP_PARSER.parse(source_code)
+    # tree = PHP_PARSER.parse(source_code) - global parser vs fresh parser per file
+    parser = Parser(PHP_LANGUAGE)
+    tree = parser.parse(source_code)
 
     return {
         "file": path.name,
         "lines": len(source_code.splitlines()),
+        "source": source_code,
         "tree": tree,  # syntax tree - structure representation of source code
     }
 
@@ -167,7 +170,7 @@ def extract_dependencies(tree) -> list[dict]:
             def find_path(child):
                 nonlocal path_node  # allows find_path to modify path_node cases of external vars
 
-                if child.type == "encapsed_string":
+                if child.type in {"string", "encapsed_string"}:
                     path_node = child
 
                 for nested_child in child.children:

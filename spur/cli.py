@@ -16,7 +16,7 @@ console = Console()
 
 @app.callback()
 def main():
-    """SPUR - PHP codebase navigation and dependency analysis."""
+    """SPUR - Static PHP Usage Railway:"""
     pass
 
 
@@ -29,8 +29,7 @@ def references(
         "-p",
         help="PHP project directory to analyse",
     ),
-):
-    """Find the definition and references of a PHP function."""
+):  # find definition and references of a funct
 
     try:
         index = index_project(str(project))
@@ -94,7 +93,7 @@ def index(
         help="Where to save the generated JSON index",
     ),
 ):
-    # Index a php project and save its extracted info
+    # Index php project, save extracted info
 
     try:
         project_index = index_project(str(project))

@@ -4,6 +4,7 @@ from rich.panel import Panel
 from rich.text import Text
 from rich.tree import Tree
 from rich.segment import Segment, Segments
+from pathlib import Path
 import random
 
 console = Console()
@@ -38,6 +39,83 @@ def display_index(symbols: list[dict]) -> None:
             f"Indexed [bold cyan]{len(symbols)}[/bold cyan] symbols",
             title="SPUR",
             border_style="cyan",
+        )
+    )
+
+
+# --- Project root -------------------------------------------------------------
+
+
+def display_root(root: Path) -> None:
+    """Print the project root the command ran against, so a wrong root is obvious."""
+
+    root = root.resolve()
+    home = Path.home()
+
+    if root == home:
+        shown = "~"
+    elif root.is_relative_to(home):
+        shown = "~/" + root.relative_to(home).as_posix()
+    else:
+        shown = root.as_posix()
+
+    console.print(Text(f"root: {shown}", style="dim"))
+
+
+# --- References ----------------------------------------------------------------
+
+REFERENCE_STATUS_STYLES = {
+    "resolved": "green",
+    "ambiguous": "yellow",
+}
+
+
+def display_references(result: dict) -> None:
+    """Render where a symbol is defined and every place that references it."""
+
+    definitions = result["definitions"]
+    references = result["references"]
+
+    console.print(
+        Panel(
+            Text(f"References: {result['name']}", style="bold cyan"),
+            title="SPUR",
+        )
+    )
+
+    console.print()
+    console.print(Text("DEFINITIONS", style="bold"))
+
+    if definitions:
+        for definition in definitions:
+            console.print(
+                Text(f"  {definition['file']}:{definition['line']}", style="green")
+            )
+    else:
+        console.print(Text("  No definition found", style="yellow"))
+
+    console.print()
+    console.print(Text("REFERENCED BY", style="bold"))
+
+    if references:
+        for reference in references:
+            status = reference["status"]
+            style = REFERENCE_STATUS_STYLES.get(status, "red")
+            console.print(
+                Text.assemble(
+                    f"  {reference['file']}:{reference['line']} ",
+                    (f"({status})", style),
+                )
+            )
+    else:
+        console.print("  No references found")
+
+    resolved = sum(1 for reference in references if reference["status"] == "resolved")
+    console.print()
+    console.print(
+        Text(
+            f"{len(references)} reference(s) found, {resolved} resolved.",
+            style="dim",
         )
     )
 

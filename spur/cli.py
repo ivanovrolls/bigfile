@@ -6,8 +6,7 @@ from rich.console import Console
 from rich.panel import Panel
 from spur.graph import build_graph
 from spur.trace import trace_function
-from spur.display import display_deps, display_trace
-import spur.deps
+from spur.display import display_deps, display_trace, display_references, display_root
 from spur.helpers import to_project_relative, find_project_root
 
 from spur.indexer import index_project
@@ -34,7 +33,9 @@ def deps(
         ...,
         help="The file that you wish to analyse for dependencies",
     ),
-    project: Path | None = typer.Option(None, "--project", "-p", help="PHP project root (auto-detected if omitted)"),
+    project: Path | None = typer.Option(
+        None, "--project", "-p", help="PHP project root (auto-detected if omitted)"
+    ),
     top_down: bool = typer.Option(
         False,
         "--top-down",
@@ -70,7 +71,9 @@ def trace(
     function: str = typer.Argument(
         help="Function name to trace",
     ),
-    project: Path | None = typer.Option(None, "--project", "-p", help="PHP project root (auto-detected if omitted)"),
+    project: Path | None = typer.Option(
+        None, "--project", "-p", help="PHP project root (auto-detected if omitted)"
+    ),
     text_only: bool = typer.Option(
         False,
         "--text-only",
@@ -105,53 +108,17 @@ def trace(
 @app.command()
 def references(
     symbol: str = typer.Argument(help="Function name to find references for"),
-    project: Path | None = typer.Option(None, "--project", "-p", help="PHP project root (auto-detected if omitted)"),
+    project: Path | None = typer.Option(
+        None, "--project", "-p", help="PHP project root (auto-detected if omitted)"
+    ),
 ):  # find definition and references of a funct
 
     try:
         root = project or find_project_root(Path.cwd())
         index = index_project(str(root))
         result = find_references(index, symbol)
-
-        console.print(
-            Panel(
-                f"[bold cyan]References: {result['name']}[/bold cyan]",
-                title="SPUR",
-            )
-        )
-
-        console.print("\n[bold]DEFINITIONS[/bold]")
-
-        if result["definitions"]:
-            for definition in result["definitions"]:
-                console.print(
-                    f"  [green]{definition['file']}:{definition['line']}[/green]"
-                )
-        else:
-            console.print("  [yellow]No definition found[/yellow]")
-
-        console.print("\n[bold]REFERENCED BY[/bold]")
-
-        if result["references"]:
-            for reference in result["references"]:
-                status = reference["status"]
-
-                if status == "resolved":
-                    style = "green"
-                elif status == "ambiguous":
-                    style = "yellow"
-                else:
-                    style = "red"
-                console.print(
-                    f"  {reference['file']}:{reference['line']} "
-                    f"[{style}][({status})][/{style}]"
-                )
-        else:
-            console.print("  No resolved references found")
-
-        console.print(
-            f"\n[dim]{len(result['references'])} resolved reference(s) found.[/dim]"
-        )
+        display_references(result)
+        display_root(root)
 
     except (FileNotFoundError, NotADirectoryError) as error:
         console.print(f"[red]Error: {error}[/red]")

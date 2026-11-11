@@ -32,7 +32,7 @@ Many planned features are still under development.
 
 ## IMPORTANT: AI USAGE DISCLOSURE
 
-**All tests and test fixtures currently included in this repository were generated using AI. The GUI was also developed using AI, as I would rather leave terminal GUI work to AI.**
+**All tests and test fixtures currently included in this repository were generated using AI. The GUI was also developed using AI (display.py), as I would rather leave terminal GUI work with nested loops to AI.**
 
 The implementation and source code of SPUR, outside of those tests and fixtures (and the GUI), are written by me with assistance from AI tools. AI has been used for programming guidance, explanations, debugging assistance and architectural discussion.
 

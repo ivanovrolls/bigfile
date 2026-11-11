@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 from spur.parser import parse_php_file, extract_symbols
+from spur.helpers import find_project_root
 
 
 def test_parse_php_file(tmp_path: Path):
@@ -66,3 +67,14 @@ def test_extract_symbols(tmp_path: Path):
     assert symbols[6]["type"] == "function"
     assert symbols[6]["name"] == "validate"
     print(result["tree"].root_node)
+
+
+def test_stray_spur_in_home_is_ignored(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    (tmp_path / ".spur").mkdir()
+    app = tmp_path / "repo" / "app"
+    (app / "login").mkdir(parents=True)
+    (tmp_path / "repo" / ".git").mkdir()
+    (app / "composer.json").write_text("{}")
+
+    assert find_project_root(app / "login") == app

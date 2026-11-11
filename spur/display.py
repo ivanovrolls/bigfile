@@ -2,6 +2,8 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 from rich.text import Text
+from rich.tree import Tree
+from rich.segment import Segment, Segments
 import random
 
 console = Console()
@@ -40,11 +42,115 @@ def display_index(symbols: list[dict]) -> None:
     )
 
 
+# --- Dependency tree ---------------------------------------------------------
+
+# Characters rich.Tree uses for its guide lines. When the tree is flipped,
+# only the "last child" corner needs to change: ┣ and ┃ look the same upside down.
+TREE_GUIDE_CHARS = set("┣┗┃━ ")
+FLIP_GUIDES = str.maketrans({"┗": "┏"})
+
+
+def _tree_label(marker: str, marker_style: str, name: str, name_style: str) -> Text:
+    # Text instead of markup string: no escaping needed, and no_wrap keeps every
+    # node on exactly one line (a wrapped line would break the flipped view).
+    return Text.assemble(
+        (marker, marker_style),
+        " ",
+        (name, name_style),
+        no_wrap=True,
+        overflow="ellipsis",
+    )
+
+
+def _build_tree(start_file: str, dependencies: list[str], parents: dict) -> Tree:
+    root = Tree(
+        _tree_label("●", "bold yellow", start_file, "bold white"),
+        guide_style="bold green",
+    )
+    nodes = {start_file: root}
+
+    # BFS order guarantees a file's parent was added before the file itself,
+    # so nodes[parent] always exists by the time we need it.
+    for dependency in dependencies:
+        parent = parents.get(dependency, start_file)
+        nodes[dependency] = nodes[parent].add(
+            _tree_label("○", "yellow", dependency, "cyan")
+        )
+
+    return root
+
+
+def _print_flipped(tree: Tree) -> None:
+    """Print a tree upside down: root on the last line, branches growing upward."""
+
+    options = console.options.update(no_wrap=True, overflow="ellipsis")
+    lines = console.render_lines(tree, options, pad=False)
+
+    output = []
+    for line in reversed(lines):
+        for segment in line:
+            # Only touch guide segments, never file names.
+            if set(segment.text) <= TREE_GUIDE_CHARS:
+                segment = Segment(
+                    segment.text.translate(FLIP_GUIDES), segment.style, segment.control
+                )
+            output.append(segment)
+        output.append(Segment.line())
+
+    console.print(Segments(output), end="")
+
+
+def display_deps(result: dict, top_down: bool = False) -> None:
+    """Render a file's dependencies as a tree, nesting each file under the one that pulled it in.
+
+    By default the tree is flipped so the start file and its direct dependencies
+    end up at the bottom of the terminal, next to the prompt. top_down=True gives
+    the conventional root-first layout (nicer when piping into less or a file).
+    """
+
+    start_file = result["start_file"]
+    dependencies = result["dependencies"]
+    # parents[file] = the file that first discovered it during BFS.
+    # Missing (older get_dependencies output) -> everything hangs off the root.
+    parents = result.get("parents", {})
+
+    header = Panel(
+        Text.assemble(("Dependencies: ", "bold cyan"), (start_file, "bold cyan")),
+        title="SPUR",
+    )
+    count = Text(f"{len(dependencies)} file(s) reachable.", style="dim")
+
+    if not dependencies:
+        message = Text("No dependencies found.", style="yellow")
+        if top_down:
+            console.print(header)
+            console.print(message)
+        else:
+            console.print(message)
+            console.print(header)
+        return
+
+    tree = _build_tree(start_file, dependencies, parents)
+
+    if top_down:
+        console.print(header)
+        console.print(tree)
+        console.print()
+        console.print(count)
+    else:
+        # Everything that summarises the result goes at the bottom, where the
+        # user's eyes are when the command finishes.
+        _print_flipped(tree)
+        console.print()
+        console.print(count)
+        console.print(header)
+
+
 # --- Railway renderer --------------------------------------------------------
 
-STATION_GAP = 8   # empty cells between neighbouring labels (the turn sits in here)
-LEVEL_ROWS = 2    # rows the track moves per level change
-MAX_LEVEL = 2     # levels range from -MAX_LEVEL to +MAX_LEVEL
+STATION_GAP = 8  # empty cells between neighbouring labels (the turn sits in here)
+LEVEL_ROWS = 2  # rows the track moves per level change
+MAX_LEVEL = 2  # levels range from -MAX_LEVEL to +MAX_LEVEL
 
 TRACK_CHARS = {"─", "│", "╮", "╯", "╭", "╰"}
 
@@ -55,7 +161,7 @@ def render_railway(path: list[str]) -> None:
     if not path:
         return
 
-    # Repeatable layout for this route: every station steps up or down at random.
+    # repeatable layout for each route per session
     seed = sum(ord(char) for file_path in path for char in file_path)
     rng = random.Random(seed)
 
@@ -101,10 +207,10 @@ def render_railway(path: list[str]) -> None:
         for col in range(turn_x + 1, end_x):
             canvas[end_y][col] = "─"
 
-        if end_y > start_y:    # going down: ─╮ then │ then ╰─
+        if end_y > start_y:  # going down: ─╮ then │ then ╰─
             canvas[start_y][turn_x] = "╮"
             canvas[end_y][turn_x] = "╰"
-        else:                  # going up:   ─╯ then │ then ╭─
+        else:  # going up:   ─╯ then │ then ╭─
             canvas[start_y][turn_x] = "╯"
             canvas[end_y][turn_x] = "╭"
 
@@ -143,46 +249,44 @@ def render_railway(path: list[str]) -> None:
         console.print(line, no_wrap=True, overflow="crop")
 
 
-def display_trace(result: dict) -> None:
-    """Display the dependency route for a traced function."""
-
+def display_trace(result: dict, text_only: bool = False):
     function_name = result["function"]
     routes = result["routes"]
     unreachable = result["unreachable"]
 
-    console.print()
     console.print(
         Panel(
-            f"[bold cyan]{function_name}()[/bold cyan]",
-            title="SPUR - Function Trace",
-            expand=False,
+            f"[bold cyan]Tracing: {function_name}[/bold cyan]",
+            title="SPUR",
         )
     )
 
     if not routes:
-        console.print(
-            f"[bold red]No dependency route found for {function_name}()[/bold red]"
-        )
+        console.print("[yellow]No dependency route found.[/yellow]")
 
-    for route_number, route in enumerate(routes, start=1):
+    for i, route in enumerate(routes, start=1):
         path = route["path"]
         definition = route["definition"]
 
         if len(routes) > 1:
-            console.print(f"\n[bold yellow]Route {route_number}[/bold yellow]")
+            console.print(f"\n[bold]Route {i}[/bold]")
 
-        render_railway(path)
+        if text_only:
+            for j, file_path in enumerate(path):
+                console.print(f"[cyan]{file_path}[/cyan]")
+
+                if j < len(path) - 1:
+                    console.print("    [green]↓[/green]")
+        else:
+            render_railway(path)
 
         console.print(
-            f"\n  [bold green]Definition found[/bold green]: "
-            f"{definition['file']}:{definition['line']}"
+            f"\n[green]Definition:[/green] {definition['file']}:{definition['line']}"
         )
 
     if unreachable:
-        console.print("\n[bold yellow]Unreachable definitions:[/bold yellow]")
-
+        console.print("\n[yellow]Unreachable definitions:[/yellow]")
         for definition in unreachable:
             console.print(f"  {definition['file']}:{definition['line']}")
 
-    console.print(f"\n[bold green]{len(routes)} route(s) found[/bold green]")
-    console.print()
+    console.print(f"\n[dim]{len(routes)} route(s) found.[/dim]")

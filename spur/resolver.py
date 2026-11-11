@@ -1,4 +1,6 @@
-def resolve_references(index: dict) -> list[dict]:
+def resolve_references(
+    index: dict,
+) -> list[dict]:  # responsible for resolving references
     symbols = index["symbols"]
     references = index["references"]
 

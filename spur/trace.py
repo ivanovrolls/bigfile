@@ -1,4 +1,5 @@
 from collections import deque
+from spur.graph import adjacency
 
 
 def find_shortest_path(
@@ -8,14 +9,7 @@ def find_shortest_path(
 ) -> list[str] | None:
     # breadth first traversal - look at all of current level before going deeper into graph
 
-    adjacency = {}
-
-    for edge in graph["edges"]:
-        source = edge["source"]
-        target = edge["target"]
-
-        adjacency.setdefault(source, []).append(target)
-
+    neighbours = adjacency(graph)
     # store path currently being explored
     queue = deque([[start_file]])
 
@@ -29,7 +23,7 @@ def find_shortest_path(
             return path
 
         # explore files required by the current file.
-        for neighbour in adjacency.get(current_file, []):
+        for neighbour in neighbours.get(current_file, []):
             if neighbour not in visited:
                 visited.add(neighbour)
                 queue.append(path + [neighbour])

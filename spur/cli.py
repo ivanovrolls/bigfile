@@ -1,12 +1,18 @@
 from pathlib import Path
 import json
-from spur.deps import get_dependencies
+from spur.deps import get_dependencies, get_dependents
 import typer
 from rich.console import Console
 from rich.panel import Panel
 from spur.graph import build_graph
 from spur.trace import trace_function
-from spur.display import display_deps, display_trace, display_references, display_root
+from spur.display import (
+    display_deps,
+    display_dependents,
+    display_trace,
+    display_references,
+    display_root,
+)
 from spur.helpers import to_project_relative, find_project_root
 
 from spur.indexer import index_project
@@ -27,7 +33,7 @@ def main():
     pass
 
 
-@app.command()
+@app.command("needs")
 def deps(
     file: Path = typer.Argument(
         ...,
@@ -57,6 +63,45 @@ def deps(
         )
 
         display_deps(result, top_down=top_down)
+        display_root(root)
+
+    except (FileNotFoundError, NotADirectoryError, ValueError) as error:
+        console.print(f"[red]Error: {error}[/red]")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def why(
+    file: Path = typer.Argument(
+        ...,
+        help="The file whose dependents you want to see",
+    ),
+    project: Path | None = typer.Option(
+        None, "--project", "-p", help="PHP project root (auto-detected if omitted)"
+    ),
+    top_down: bool = typer.Option(
+        False,
+        "--top-down",
+        "-t",
+        help="Show the start file at the top instead of the bottom",
+    ),
+):
+    """Show every file that includes this file, directly or indirectly."""
+
+    try:
+        root = project or find_project_root(Path.cwd())
+        index = index_project(str(root))
+        graph = build_graph(index)
+
+        start_file = to_project_relative(file, root)
+
+        result = get_dependents(
+            graph,
+            start_file,
+        )
+
+        display_dependents(result, top_down=top_down)
+        display_root(root)
 
     except (FileNotFoundError, NotADirectoryError, ValueError) as error:
         console.print(f"[red]Error: {error}[/red]")
@@ -99,6 +144,7 @@ def trace(
         )
 
         display_trace(result, text_only=text_only)
+        display_root(root)
 
     except (FileNotFoundError, NotADirectoryError, ValueError) as error:
         console.print(f"[red]Error: {error}[/red]")
@@ -171,6 +217,8 @@ def index(
 
             for error in project_index["errors"]:
                 console.print(f"  {error['file']}: {error['error']}")
+
+        display_root(root)
 
     except NotADirectoryError as error:
         console.print(f"[red]Error: {error}[/red]")

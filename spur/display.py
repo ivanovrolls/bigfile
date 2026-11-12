@@ -178,28 +178,22 @@ def _print_flipped(tree: Tree) -> None:
     console.print(Segments(output), end="")
 
 
-def display_deps(result: dict, top_down: bool = False) -> None:
-    """Render a file's dependencies as a tree, nesting each file under the one that pulled it in.
+def _display_file_tree(
+    title: str,
+    start_file: str,
+    files: list[str],
+    parents: dict,
+    count_text: str,
+    empty_text: str,
+    top_down: bool,
+) -> None:
+    """Shared layout for deps and why: panel, tree, count, in the chosen orientation."""
 
-    By default the tree is flipped so the start file and its direct dependencies
-    end up at the bottom of the terminal, next to the prompt. top_down=True gives
-    the conventional root-first layout (nicer when piping into less or a file).
-    """
+    header = Panel(Text(f"{title}: {start_file}", style="bold cyan"), title="SPUR")
+    count = Text(count_text, style="dim")
 
-    start_file = result["start_file"]
-    dependencies = result["dependencies"]
-    # parents[file] = the file that first discovered it during BFS.
-    # Missing (older get_dependencies output) -> everything hangs off the root.
-    parents = result.get("parents", {})
-
-    header = Panel(
-        Text.assemble(("Dependencies: ", "bold cyan"), (start_file, "bold cyan")),
-        title="SPUR",
-    )
-    count = Text(f"{len(dependencies)} file(s) reachable.", style="dim")
-
-    if not dependencies:
-        message = Text("No dependencies found.", style="yellow")
+    if not files:
+        message = Text(empty_text, style="yellow")
         if top_down:
             console.print(header)
             console.print(message)
@@ -208,7 +202,7 @@ def display_deps(result: dict, top_down: bool = False) -> None:
             console.print(header)
         return
 
-    tree = _build_tree(start_file, dependencies, parents)
+    tree = _build_tree(start_file, files, parents)
 
     if top_down:
         console.print(header)
@@ -222,6 +216,47 @@ def display_deps(result: dict, top_down: bool = False) -> None:
         console.print()
         console.print(count)
         console.print(header)
+
+
+def display_deps(result: dict, top_down: bool = False) -> None:
+    """Render a file's dependencies as a tree, nesting each file under the one that pulled it in.
+
+    By default the tree is flipped so the start file and its direct dependencies
+    end up at the bottom of the terminal, next to the prompt. top_down=True gives
+    the conventional root-first layout (nicer when piping into less or a file).
+    """
+
+    dependencies = result["dependencies"]
+    _display_file_tree(
+        title="Dependencies",
+        start_file=result["start_file"],
+        files=dependencies,
+        # parents[file] = the file that first discovered it during BFS.
+        # Missing (older get_dependencies output) -> everything hangs off the root.
+        parents=result.get("parents", {}),
+        count_text=f"{len(dependencies)} file(s) reachable.",
+        empty_text="No dependencies found.",
+        top_down=top_down,
+    )
+
+
+def display_dependents(result: dict, top_down: bool = False) -> None:
+    """Render every file that includes the start file, directly or indirectly.
+
+    Each file is nested under the file it includes, so the outermost files
+    (usually entry points such as pages) are the ones that would break first.
+    """
+
+    dependents = result["dependents"]
+    _display_file_tree(
+        title="Included by",
+        start_file=result["start_file"],
+        files=dependents,
+        parents=result.get("parents", {}),
+        count_text=f"{len(dependents)} file(s) include this, directly or indirectly.",
+        empty_text="Nothing includes this file.",
+        top_down=top_down,
+    )
 
 
 # --- Railway renderer --------------------------------------------------------

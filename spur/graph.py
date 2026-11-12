@@ -2,6 +2,20 @@ from pathlib import Path
 import os
 
 
+def adjacency(graph: dict, reverse: bool = False) -> dict[str, list[str]]:
+    adjacency_dict = {}
+    for edge in graph["edges"]:
+        source = edge["source"]
+        target = edge["target"]
+
+        if reverse:
+            adjacency_dict.setdefault(target, []).append(source)
+        else:
+            adjacency_dict.setdefault(source, []).append(target)
+
+    return adjacency_dict
+
+
 def build_graph(index: dict) -> dict:  # build directed graph of dependencies
 
     graph = {
